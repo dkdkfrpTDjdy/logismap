@@ -4,7 +4,6 @@ import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import folium_static
-import hashlib
 import time
 
 # 페이지 설정
@@ -74,8 +73,6 @@ def check_password():
                 st.session_state['login_attempts'] = 0  # 로그인 시도 카운터 초기화
                 # 로그인 성공 메시지
                 st.success("로그인 성공! 잠시만 기다려주세요...")
-                time.sleep(1)  # 1초 지연 후 페이지 새로고침
-                st.experimental_rerun()
                 return True
             else:
                 st.session_state['login_attempts'] += 1
@@ -93,6 +90,13 @@ if 'search_clicked' not in st.session_state:
 # 검색 버튼 클릭 시 호출될 함수
 def on_search_clicked():
     st.session_state.search_clicked = True
+
+# 로그아웃 함수
+def logout():
+    st.session_state['authenticated'] = False
+    st.session_state['login_attempts'] = 0
+    # 페이지 새로고침 (st.rerun() 사용)
+    st.rerun()
 
 # 데이터 전처리
 def process_data(df):
@@ -162,11 +166,6 @@ def company_size_order(size):
     }
     return company_size_mapping.get(size, 999)  # 없는 분류는 맨 뒤로
 
-# 로그아웃 함수
-def logout():
-    st.session_state['authenticated'] = False
-    st.experimental_rerun()
-
 # 메인 앱 코드
 def main():
     # 데이터 로드 (로딩 메시지 숨김)
@@ -210,7 +209,7 @@ def main():
         
         with cols[1]:
             # 시군구 선택 (컬럼명 '시군구' 사용)
-            if selected_region != '전체' and '시군구' in df.columns:
+            if selected_region and selected_region != '전체' and '시군구' in df.columns:
                 districts = ['전체'] + sorted(df[df['시도'] == selected_region]['시군구'].dropna().unique().tolist())
                 selected_district = st.selectbox("시군구", districts, key="sigungu")
             else:
