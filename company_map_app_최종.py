@@ -4,12 +4,85 @@ import folium
 from folium.plugins import MarkerCluster
 import streamlit as st
 from streamlit_folium import folium_static
+import hashlib
+import time
 
 # 페이지 설정
 st.set_page_config(
     page_title="AJ네트웍스 로지스 수요처 맵",
     layout="wide"
 )
+
+# 인증 함수 정의
+def check_password():
+    """로그인 위젯 표시 및 인증 검증 함수"""
+    # 세션 상태 설정
+    if 'login_attempts' not in st.session_state:
+        st.session_state['login_attempts'] = 0
+    
+    if 'authenticated' not in st.session_state:
+        st.session_state['authenticated'] = False
+    
+    # 이미 인증된 경우
+    if st.session_state['authenticated']:
+        return True
+
+    # 로그인 시도 제한
+    if st.session_state['login_attempts'] >= 5:  # 5회 이상 실패 시
+        st.error("로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.")
+        time.sleep(2)  # 2초 지연
+        st.session_state['login_attempts'] = 0  # 카운터 리셋
+        return False
+    
+    # 로그인 폼 컨테이너
+    login_container = st.container()
+    
+    with login_container.form("로그인", clear_on_submit=False):
+        st.markdown("""
+        <style>
+            .login-title {
+                font-size: 24px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                text-align: center;
+            }
+            .stButton>button {
+                width: 100%;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="login-title">AJ네트웍스 로지스 수요처 맵</div>', unsafe_allow_html=True)
+        
+        username = st.text_input("아이디", placeholder="아이디를 입력하세요")
+        password = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요")
+        
+        # 로그인 시도 상태 표시
+        if st.session_state['login_attempts'] > 0:
+            st.warning(f"로그인 실패 ({st.session_state['login_attempts']}/5)")
+        
+        submitted = st.form_submit_button("로그인", type="primary")
+        
+        # 기본 자격 증명
+        correct_username = "AJNETWORKS"
+        correct_password = "AJ1234!@#$"
+        
+        if submitted:
+            # 사용자 입력 검증
+            if username == correct_username and password == correct_password:
+                st.session_state['authenticated'] = True
+                st.session_state['login_attempts'] = 0  # 로그인 시도 카운터 초기화
+                # 로그인 성공 메시지
+                st.success("로그인 성공! 잠시만 기다려주세요...")
+                time.sleep(1)  # 1초 지연 후 페이지 새로고침
+                st.experimental_rerun()
+                return True
+            else:
+                st.session_state['login_attempts'] += 1
+                st.error(f"아이디 또는 비밀번호가 올바르지 않습니다. (시도: {st.session_state['login_attempts']}/5)")
+                return False
+    
+    return False
 
 # 세션 상태 관리를 위한 변수 초기화
 if 'filtered_data' not in st.session_state:
@@ -20,9 +93,6 @@ if 'search_clicked' not in st.session_state:
 # 검색 버튼 클릭 시 호출될 함수
 def on_search_clicked():
     st.session_state.search_clicked = True
-
-# 제목
-st.title("AJ네트웍스 로지스 수요처 맵")
 
 # 데이터 전처리
 def process_data(df):
@@ -92,6 +162,11 @@ def company_size_order(size):
     }
     return company_size_mapping.get(size, 999)  # 없는 분류는 맨 뒤로
 
+# 로그아웃 함수
+def logout():
+    st.session_state['authenticated'] = False
+    st.experimental_rerun()
+
 # 메인 앱 코드
 def main():
     # 데이터 로드 (로딩 메시지 숨김)
@@ -102,7 +177,15 @@ def main():
         st.error("데이터를 로드할 수 없습니다. 파일 경로를 확인해주세요.")
         return
     
-    # 안내 문구 제거함
+    # 로그아웃 버튼 (오른쪽 상단에 배치)
+    logout_col1, logout_col2 = st.columns([9, 1])
+    with logout_col2:
+        if st.button("로그아웃"):
+            logout()
+    
+    # 제목
+    with logout_col1:
+        st.title("AJ네트웍스 로지스 수요처 맵")
     
     # ===== 상단 검색 및 필터링 옵션 =====
     st.markdown("<hr>", unsafe_allow_html=True)
@@ -626,4 +709,6 @@ def main():
         """)
 
 if __name__ == "__main__":
-    main()
+    # 로그인 검증 후 메인 앱 실행
+    if check_password():
+        main()
